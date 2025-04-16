@@ -1,51 +1,41 @@
 name: Build Brave for macOS
 
 on:
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
   push:
     branches: [ "main" ]
 
 jobs:
   build:
-    runs-on: macos-latest  # 使用 GitHub 提供的 macOS 虚拟机
-    timeout-minutes: 180   # 超时设置为 3 小时
+    runs-on: macos-latest
+    timeout-minutes: 180
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        submodules: recursive  # 包含子模块
+        submodules: recursive
 
     - name: Install dependencies
       run: |
-        # 安装 Homebrew 和基础工具
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
         source ~/.zshrc
-        
-        # 安装编译依赖
         brew install python@3.11 node@20 git ninja pkg-config
         brew link --force python@3.11 node@20
-
-        # 安装 depot_tools
         git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
         echo "$GITHUB_WORKSPACE/depot_tools" >> $GITHUB_PATH
 
     - name: Sync and build
       run: |
-        # 同步代码
         fetch --nohooks brave
         cd src
         gclient sync --verbose
-
-        # 生成构建配置
         gn gen out/Release --args="is_debug=false symbol_level=0"
-
-        # 开始编译（限制并行任务数避免 OOM）
         autoninja -C out/Release brave -j 4
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4  # 关键修改点
       with:
         name: brave-macos-build
         path: src/out/Release/Brave Browser.app
